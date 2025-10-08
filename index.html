@@ -3,370 +3,769 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agent Video Call</title>
+  <title>Agent Video Call CCP</title>
+  
+  <!-- Load Amazon Chime SDK -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/amazon-chime-sdk-js/3.15.0/amazon-chime-sdk.min.js"></script>
+  
   <style>
-    body {
-      font-family: Arial, sans-serif;
+    * {
       margin: 0;
-      padding: 10px;
-      background-color: #f5f5f5;
-      text-align: center;
-      height: 100vh;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
+      padding: 20px;
     }
-    h2 {
-      color: #333;
-      font-size: 18px;
-    }
-    video {
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 800px;
       width: 100%;
-      max-width: 400px;
-      height: 200px;
-      background-color: #000;
-      border-radius: 8px;
-      object-fit: cover;
-      margin: 10px auto;
-      display: block;
+      overflow: hidden;
     }
-    #customer-video {
-      border: 2px solid #4CAF50;
-    }
-    button {
-      padding: 8px 16px;
-      margin: 5px;
-      background-color: #e8663d;
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
+      padding: 20px;
+      text-align: center;
     }
-    button:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
+    
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
     }
-    .status {
+    
+    .status-badge {
+      display: inline-block;
+      padding: 5px 15px;
+      border-radius: 20px;
       font-size: 12px;
       font-weight: bold;
-      margin: 10px 0;
+      margin-top: 10px;
     }
-    .status.success {
-      color: #4CAF50;
+    
+    .status-online {
+      background: #10b981;
     }
-    .status.error {
-      color: #e8663d;
+    
+    .status-offline {
+      background: #ef4444;
     }
+    
+    .status-connecting {
+      background: #f59e0b;
+    }
+    
+    .content {
+      padding: 20px;
+    }
+    
     .notification {
-      margin: 10px;
-      padding: 10px;
-      background-color: #fff;
-      border: 1px solid #ccc;
+      background: #fef3c7;
+      border: 2px solid #f59e0b;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .notification.show {
+      display: block;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .notification h3 {
+      color: #92400e;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    
+    .notification p {
+      color: #78350f;
+      margin-bottom: 15px;
+    }
+    
+    .notification-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .video-section {
+      display: none;
+      margin-top: 20px;
+    }
+    
+    .video-section.active {
+      display: block;
+    }
+    
+    .video-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .video-container {
+      position: relative;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    .video-container video {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+      display: block;
+    }
+    
+    .video-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .video-placeholder {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #9ca3af;
+    }
+    
+    .video-placeholder-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    button {
+      padding: 12px 24px;
+      border: none;
       border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .btn-primary {
+      background: #10b981;
+      color: white;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+    
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    }
+    
+    .btn-secondary {
+      background: #6b7280;
+      color: white;
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      background: #4b5563;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+    }
+    
+    .btn-toggle {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .btn-toggle:hover:not(:disabled) {
+      background: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    
+    .btn-toggle.active {
+      background: #ef4444;
+    }
+    
+    .status-message {
+      text-align: center;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .status-message.success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .status-message.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .status-message.info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .connection-info {
+      background: #f3f4f6;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    
+    .connection-info strong {
+      color: #374151;
     }
   </style>
 </head>
 <body>
-  <h2>Agent Video Call</h2>
-  <div id="notification" class="notification" style="display: none;">
-    <p>Incoming video call. Contact ID: <span id="contactId"></span></p>
-    <button id="acceptCall">Accept Call</button>
-    <button id="rejectCall">Reject Call</button>
-  </div>
-  <video id="customer-video" autoplay playsinline></video>
-  <video id="agent-video" autoplay playsinline></video>
-  <div class="status success" id="status">Waiting for SDK to load...</div>
-  <div>
-    <button id="toggleVideo" disabled>Turn On Video</button>
-    <button id="toggleMute" disabled>Mute</button>
-    <button id="endSession" disabled>End Call</button>
+  <div class="container">
+    <div class="header">
+      <h1>🎥 Agent Video Call Center</h1>
+      <div class="status-badge status-offline" id="statusBadge">Connecting...</div>
+    </div>
+    
+    <div class="content">
+      <!-- Incoming Call Notification -->
+      <div class="notification" id="notification">
+        <h3>📞 Incoming Video Call</h3>
+        <p>Contact ID: <strong id="contactId">-</strong></p>
+        <p>Customer is waiting to connect with you</p>
+        <div class="notification-buttons">
+          <button class="btn-primary" id="acceptCall">
+            ✓ Accept Call
+          </button>
+          <button class="btn-danger" id="rejectCall">
+            ✗ Reject
+          </button>
+        </div>
+      </div>
+      
+      <!-- Video Section -->
+      <div class="video-section" id="videoSection">
+        <div class="video-grid">
+          <!-- Customer Video -->
+          <div class="video-container">
+            <video id="customerVideo" autoplay playsinline></video>
+            <div class="video-label">Customer Video</div>
+            <div class="video-placeholder" id="customerPlaceholder">
+              <div class="video-placeholder-icon">📹</div>
+              <div>Waiting for customer video...</div>
+            </div>
+          </div>
+          
+          <!-- Agent Video (Self) -->
+          <div class="video-container">
+            <video id="agentVideo" autoplay playsinline muted></video>
+            <div class="video-label">Your Video</div>
+            <div class="video-placeholder" id="agentPlaceholder" style="display: none;">
+              <div class="video-placeholder-icon">📷</div>
+              <div>Your video is off</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Call Controls -->
+        <div class="controls">
+          <button class="btn-toggle" id="toggleVideo" disabled>
+            📹 Turn On Video
+          </button>
+          <button class="btn-toggle" id="toggleMute" disabled>
+            🎤 Mute
+          </button>
+          <button class="btn-danger" id="endCall" disabled>
+            📞 End Call
+          </button>
+        </div>
+      </div>
+      
+      <!-- Status Messages -->
+      <div class="status-message info" id="statusMessage">
+        Initializing... Please wait.
+      </div>
+      
+      <!-- Connection Info -->
+      <div class="connection-info">
+        <strong>Backend Server:</strong> <span id="backendUrl">http://localhost:3000</span><br>
+        <strong>WebSocket:</strong> <span id="wsStatus">Disconnected</span><br>
+        <strong>SDK Status:</strong> <span id="sdkStatus">Loading...</span>
+      </div>
+    </div>
   </div>
 
   <script>
-    // Function to initialize the app after SDK is loaded
+    // Configuration - UPDATE THESE VALUES
+    const BACKEND_URL = 'http://localhost:3000'; // Your backend server URL
+    const WS_URL = 'ws://localhost:3000'; // Your WebSocket URL
+    
+    // Global variables
+    let meetingSession = null;
+    let audioElement = null;
+    let isVideoOn = false;
+    let isMuted = false;
+    let currentContactId = null;
+    let ws = null;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    
+    // DOM Elements
+    const statusBadge = document.getElementById('statusBadge');
+    const notification = document.getElementById('notification');
+    const contactIdElement = document.getElementById('contactId');
+    const acceptButton = document.getElementById('acceptCall');
+    const rejectButton = document.getElementById('rejectCall');
+    const videoSection = document.getElementById('videoSection');
+    const customerVideo = document.getElementById('customerVideo');
+    const agentVideo = document.getElementById('agentVideo');
+    const customerPlaceholder = document.getElementById('customerPlaceholder');
+    const agentPlaceholder = document.getElementById('agentPlaceholder');
+    const toggleVideoBtn = document.getElementById('toggleVideo');
+    const toggleMuteBtn = document.getElementById('toggleMute');
+    const endCallBtn = document.getElementById('endCall');
+    const statusMessage = document.getElementById('statusMessage');
+    const backendUrlSpan = document.getElementById('backendUrl');
+    const wsStatusSpan = document.getElementById('wsStatus');
+    const sdkStatusSpan = document.getElementById('sdkStatus');
+    
+    // Update UI
+    backendUrlSpan.textContent = BACKEND_URL;
+    
+    // Initialize on load
+    window.addEventListener('load', function() {
+      initializeApp();
+    });
+    
     function initializeApp() {
-      if (!window['amazon-chime-sdk-js']) {
-        document.getElementById('status').textContent = 'Failed to load Amazon Chime SDK. Please refresh the page.';
-        document.getElementById('status').className = 'status error';
-        console.error('Amazon Chime SDK not found');
+      // Check if Chime SDK is loaded
+      if (!window.ChimeSDK) {
+        updateStatus('❌ Amazon Chime SDK failed to load', 'error');
+        sdkStatusSpan.textContent = 'Failed to load';
+        statusBadge.textContent = 'Error';
+        statusBadge.className = 'status-badge status-offline';
         return;
       }
-
-      const { DefaultMeetingSession, ConsoleLogger, LogLevel, DefaultDeviceController, MeetingSessionConfiguration } = window['amazon-chime-sdk-js'];
-      let meetingSession = null;
-      let audioElement = null;
-      let isVideoOn = false;
-      let isMuted = false;
-      let currentContactId = null;
-
-      const statusElement = document.getElementById('status');
-      const notificationElement = document.getElementById('notification');
-      const contactIdElement = document.getElementById('contactId');
-      const acceptButton = document.getElementById('acceptCall');
-      const rejectButton = document.getElementById('rejectCall');
-      const videoButton = document.getElementById('toggleVideo');
-      const muteButton = document.getElementById('toggleMute');
-      const endButton = document.getElementById('endSession');
-      const videoElement = document.getElementById('agent-video');
-      const customerVideoElement = document.getElementById('customer-video');
-
-      function updateStatus(message, isError = false) {
-        statusElement.textContent = message;
-        statusElement.className = `status ${isError ? 'error' : 'success'}`;
-      }
-
-      function showNotification(contactId) {
-        currentContactId = contactId;
-        contactIdElement.textContent = contactId;
-        notificationElement.style.display = 'block';
-        updateStatus('Incoming call received');
-      }
-
-      function hideNotification() {
-        notificationElement.style.display = 'none';
-        currentContactId = null;
-        updateStatus('Waiting for incoming calls...');
-      }
-
-      async function startAgentSession(contactId) {
-        try {
-          updateStatus('Connecting...');
-          const response = await fetch('http://localhost:3000/api/agent-webrtc', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contactId }),
-          });
-          if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-          const data = await response.json();
-          if (!data.success) throw new Error(data.error || 'Failed to start call');
-          if (!data.connectionData?.Meeting || !data.connectionData?.AgentAttendee) {
-            throw new Error('Invalid connection data from backend');
-          }
-
-          const { Meeting, AgentAttendee } = data.connectionData;
-          const logger = new ConsoleLogger('AgentLogs', LogLevel.INFO);
-          const deviceController = new DefaultDeviceController(logger);
-          const configuration = new MeetingSessionConfiguration(Meeting, AgentAttendee);
-          meetingSession = new DefaultMeetingSession(configuration, logger, deviceController);
-
-          audioElement = document.createElement('audio');
-          audioElement.autoplay = true;
-          document.body.appendChild(audioElement);
-          await meetingSession.audioVideo.bindAudioElement(audioElement);
-
-          const observer = {
-            videoTileDidUpdate: (tileState) => {
-              console.log('Video tile updated:', {
-                tileId: tileState.tileId,
-                localTile: tileState.localTile,
-                active: tileState.active,
-                boundAttendeeId: tileState.boundAttendeeId,
-              });
-              if (!tileState.active || !tileState.boundAttendeeId) return;
-
-              if (tileState.localTile) {
-                if (videoElement) {
-                  meetingSession.audioVideo.bindVideoElement(tileState.tileId, videoElement);
-                  isVideoOn = true;
-                  videoButton.textContent = 'Turn Off Video';
-                  updateStatus('Local video enabled');
-                } else {
-                  console.warn('Local video element not available');
-                }
-              } else {
-                if (customerVideoElement) {
-                  meetingSession.audioVideo.bindVideoElement(tileState.tileId, customerVideoElement);
-                  updateStatus('Customer video enabled');
-                } else {
-                  console.warn('Customer video element not available');
-                }
-              }
-            },
-            videoTileWasRemoved: (tileId) => {
-              console.log('Video tile removed:', tileId);
-              updateStatus('A video stream was disconnected');
-            },
-          };
-          meetingSession.audioVideo.addObserver(observer);
-
+      
+      sdkStatusSpan.textContent = 'Loaded ✓';
+      updateStatus('✓ Amazon Chime SDK loaded successfully', 'success');
+      
+      // Initialize WebSocket
+      connectWebSocket();
+      
+      // Setup event listeners
+      setupEventListeners();
+      
+      // Start polling as backup
+      startPolling();
+    }
+    
+    function connectWebSocket() {
+      try {
+        ws = new WebSocket(WS_URL);
+        
+        ws.onopen = () => {
+          console.log('✓ WebSocket connected');
+          wsStatusSpan.textContent = 'Connected ✓';
+          wsStatusSpan.style.color = '#10b981';
+          statusBadge.textContent = 'Online';
+          statusBadge.className = 'status-badge status-online';
+          updateStatus('🟢 Ready to receive calls', 'success');
+          reconnectAttempts = 0;
+        };
+        
+        ws.onmessage = (event) => {
           try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            stream.getTracks().forEach(track => track.stop());
-            const videoInputDevices = await deviceController.listVideoInputDevices();
-            if (videoInputDevices.length > 0) {
-              await deviceController.chooseVideoInputDevice(videoInputDevices[0].deviceId);
-              meetingSession.audioVideo.startLocalVideoTile();
-            } else {
-              updateStatus('No camera detected', true);
+            const data = JSON.parse(event.data);
+            console.log('WebSocket message:', data);
+            
+            if (data.type === 'newCall' && data.contactId) {
+              showIncomingCall(data.contactId);
             }
           } catch (err) {
-            console.error('Camera access error:', err);
-            updateStatus('Camera access denied or no camera available', true);
+            console.error('Error parsing WebSocket message:', err);
           }
-
-          meetingSession.audioVideo.start();
-          updateStatus('Connected to customer');
-          videoButton.disabled = false;
-          muteButton.disabled = false;
-          endButton.disabled = false;
-          hideNotification();
-        } catch (err) {
-          console.error('Error starting session:', err);
-          updateStatus(`Failed to connect: ${err.message}`, true);
-          hideNotification();
-        }
-      }
-
-      async function toggleVideo() {
-        if (!meetingSession) return;
-        try {
-          if (isVideoOn) {
-            meetingSession.audioVideo.stopLocalVideoTile();
-            isVideoOn = false;
-            videoButton.textContent = 'Turn On Video';
-            updateStatus('Video turned off');
+        };
+        
+        ws.onclose = () => {
+          console.log('WebSocket disconnected');
+          wsStatusSpan.textContent = 'Disconnected';
+          wsStatusSpan.style.color = '#ef4444';
+          statusBadge.textContent = 'Offline';
+          statusBadge.className = 'status-badge status-offline';
+          updateStatus('⚠️ WebSocket disconnected. Attempting to reconnect...', 'error');
+          
+          // Attempt reconnection
+          if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            const delay = Math.min(reconnectAttempts * 2000, 10000);
+            setTimeout(() => {
+              console.log(`Reconnecting... (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+              connectWebSocket();
+            }, delay);
           } else {
-            const videoInputDevices = await meetingSession.audioVideo.listVideoInputDevices();
-            if (videoInputDevices.length > 0) {
-              await meetingSession.audioVideo.chooseVideoInputDevice(videoInputDevices[0].deviceId);
-              meetingSession.audioVideo.startLocalVideoTile();
-              const localTile = meetingSession.audioVideo.getLocalVideoTile();
-              if (localTile && videoElement) {
-                meetingSession.audioVideo.bindVideoElement(localTile.state().tileId, videoElement);
-                isVideoOn = true;
-                videoButton.textContent = 'Turn Off Video';
-                updateStatus('Video turned on');
-              }
-            } else {
-              updateStatus('No camera detected', true);
-            }
+            updateStatus('❌ WebSocket connection failed. Using polling mode.', 'error');
           }
-        } catch (err) {
-          console.error('Error toggling video:', err);
-          updateStatus('Error toggling video', true);
-        }
+        };
+        
+        ws.onerror = (err) => {
+          console.error('WebSocket error:', err);
+        };
+      } catch (err) {
+        console.error('Error creating WebSocket:', err);
+        updateStatus('⚠️ WebSocket unavailable. Using polling mode.', 'error');
       }
-
-      async function toggleMute() {
-        if (!meetingSession) return;
-        try {
-          if (isMuted) {
-            const audioInputDevices = await meetingSession.audioVideo.listAudioInputDevices();
-            if (audioInputDevices.length > 0) {
-              await meetingSession.audioVideo.chooseAudioInputDevice(audioInputDevices[0].deviceId);
-              isMuted = false;
-              muteButton.textContent = 'Mute';
-              updateStatus('Microphone unmuted');
-            }
-          } else {
-            await meetingSession.audioVideo.stopAudioInput();
-            isMuted = true;
-            muteButton.textContent = 'Unmute';
-            updateStatus('Microphone muted');
-          }
-        } catch (err) {
-          console.error('Error toggling mute:', err);
-          updateStatus('Error toggling mute', true);
-        }
-      }
-
-      function endSession() {
-        if (meetingSession) {
-          meetingSession.audioVideo.stop();
-          if (audioElement) {
-            audioElement.pause();
-            document.body.removeChild(audioElement);
-            audioElement = null;
-          }
-          meetingSession = null;
-          isVideoOn = false;
-          isMuted = false;
-          videoButton.textContent = 'Turn On Video';
-          muteButton.textContent = 'Mute';
-          updateStatus('Call ended');
-          videoButton.disabled = true;
-          muteButton.disabled = true;
-          endButton.disabled = true;
-        }
-      }
-
-      let ws = new WebSocket('ws://localhost:3000');
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-        updateStatus('WebSocket connected');
-      };
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'newCall' && data.contactId) {
-          showNotification(data.contactId);
-        }
-      };
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        updateStatus('WebSocket disconnected, trying to reconnect...', true);
-        reconnectWebSocket();
-      };
-      ws.onerror = (err) => console.error('WebSocket error:', err);
-
-      function reconnectWebSocket(attempt = 1) {
-        const maxAttempts = 5;
-        const delay = Math.min(attempt * 2000, 10000);
-        setTimeout(() => {
-          console.log(`Reconnecting WebSocket (attempt ${attempt}/${maxAttempts})`);
-          ws = new WebSocket('ws://localhost:3000');
-          ws.onopen = () => {
-            console.log('WebSocket reconnected');
-            updateStatus('WebSocket reconnected', false);
-          };
-          ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'newCall' && data.contactId) {
-              showNotification(data.contactId);
-            }
-          };
-          ws.onclose = () => {
-            if (attempt < maxAttempts) {
-              reconnectWebSocket(attempt + 1);
-            } else {
-              updateStatus('Failed to reconnect WebSocket. Please refresh the page.', true);
-            }
-          };
-          ws.onerror = (err) => console.error('WebSocket error:', err);
-        }, delay);
-      }
-
-      function pollForCalls() {
-        fetch('http://localhost:3000/api/check-calls')
+    }
+    
+    function startPolling() {
+      setInterval(() => {
+        fetch(`${BACKEND_URL}/api/check-calls`)
           .then(res => res.json())
           .then(data => {
-            if (data.contactId) {
-              showNotification(data.contactId);
+            if (data.contactId && !currentContactId) {
+              showIncomingCall(data.contactId);
             }
           })
           .catch(err => console.error('Polling error:', err));
+      }, 5000);
+    }
+    
+    function showIncomingCall(contactId) {
+      currentContactId = contactId;
+      contactIdElement.textContent = contactId;
+      notification.classList.add('show');
+      updateStatus('📞 Incoming call! Click Accept to answer.', 'info');
+      
+      // Play notification sound (optional)
+      playNotificationSound();
+    }
+    
+    function hideIncomingCall() {
+      notification.classList.remove('show');
+      currentContactId = null;
+    }
+    
+    function playNotificationSound() {
+      // Simple beep using Web Audio API
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.value = 0.1;
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+      } catch (err) {
+        console.error('Audio error:', err);
       }
-      setInterval(pollForCalls, 5000);
-
+    }
+    
+    function setupEventListeners() {
       acceptButton.addEventListener('click', () => {
         if (currentContactId) {
-          startAgentSession(currentContactId);
+          acceptCall(currentContactId);
         }
       });
+      
       rejectButton.addEventListener('click', () => {
-        hideNotification();
-        fetch('http://localhost:3000/api/reject-call', {
+        rejectCall();
+      });
+      
+      toggleVideoBtn.addEventListener('click', toggleVideo);
+      toggleMuteBtn.addEventListener('click', toggleMute);
+      endCallBtn.addEventListener('click', endCall);
+    }
+    
+    async function acceptCall(contactId) {
+      try {
+        updateStatus('Connecting to call...', 'info');
+        acceptButton.disabled = true;
+        rejectButton.disabled = true;
+        
+        // Call backend to join the meeting
+        const response = await fetch(`${BACKEND_URL}/api/agent-webrtc`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contactId }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to join call');
+        }
+        
+        if (!data.connectionData?.Meeting || !data.connectionData?.AgentAttendee) {
+          throw new Error('Invalid connection data received');
+        }
+        
+        // Setup Chime meeting
+        await setupChimeMeeting(data.connectionData);
+        
+        // Hide notification and show video section
+        hideIncomingCall();
+        videoSection.classList.add('active');
+        
+        updateStatus('✓ Connected to customer', 'success');
+        
+      } catch (err) {
+        console.error('Error accepting call:', err);
+        updateStatus(`❌ Failed to connect: ${err.message}`, 'error');
+        acceptButton.disabled = false;
+        rejectButton.disabled = false;
+      }
+    }
+    
+    async function setupChimeMeeting(connectionData) {
+      const { Meeting, AgentAttendee } = connectionData;
+      
+      // Extract Chime SDK classes
+      const {
+        ConsoleLogger,
+        LogLevel,
+        DefaultDeviceController,
+        DefaultMeetingSession,
+        MeetingSessionConfiguration
+      } = window.ChimeSDK;
+      
+      // Create meeting configuration
+      const logger = new ConsoleLogger('AgentLogs', LogLevel.INFO);
+      const deviceController = new DefaultDeviceController(logger);
+      const configuration = new MeetingSessionConfiguration(Meeting, AgentAttendee);
+      
+      // Create meeting session
+      meetingSession = new DefaultMeetingSession(configuration, logger, deviceController);
+      
+      // Setup audio
+      audioElement = document.createElement('audio');
+      audioElement.autoplay = true;
+      document.body.appendChild(audioElement);
+      await meetingSession.audioVideo.bindAudioElement(audioElement);
+      
+      // Setup video observer
+      const observer = {
+        videoTileDidUpdate: (tileState) => {
+          console.log('Video tile updated:', tileState);
+          
+          if (!tileState.active || !tileState.boundAttendeeId) return;
+          
+          if (tileState.localTile) {
+            // Agent's own video
+            meetingSession.audioVideo.bindVideoElement(tileState.tileId, agentVideo);
+            agentPlaceholder.style.display = 'none';
+          } else {
+            // Customer's video
+            meetingSession.audioVideo.bindVideoElement(tileState.tileId, customerVideo);
+            customerPlaceholder.style.display = 'none';
+            updateStatus('✓ Customer video active', 'success');
+          }
+        },
+        videoTileWasRemoved: (tileId) => {
+          console.log('Video tile removed:', tileId);
+        }
+      };
+      
+      meetingSession.audioVideo.addObserver(observer);
+      
+      // Start audio
+      try {
+        const audioInputDevices = await deviceController.listAudioInputDevices();
+        if (audioInputDevices.length > 0) {
+          await deviceController.startAudioInput(audioInputDevices[0].deviceId);
+        }
+      } catch (err) {
+        console.warn('Microphone error:', err);
+        updateStatus('⚠️ Microphone not available', 'error');
+      }
+      
+      // Start the meeting
+      meetingSession.audioVideo.start();
+      
+      // Enable controls
+      toggleVideoBtn.disabled = false;
+      toggleMuteBtn.disabled = false;
+      endCallBtn.disabled = false;
+    }
+    
+    async function toggleVideo() {
+      if (!meetingSession) return;
+      
+      try {
+        if (isVideoOn) {
+          meetingSession.audioVideo.stopLocalVideoTile();
+          agentPlaceholder.style.display = 'flex';
+          toggleVideoBtn.textContent = '📹 Turn On Video';
+          toggleVideoBtn.classList.remove('active');
+          isVideoOn = false;
+          updateStatus('Video turned off', 'info');
+        } else {
+          const videoDevices = await meetingSession.audioVideo.listVideoInputDevices();
+          if (videoDevices.length > 0) {
+            await meetingSession.audioVideo.chooseVideoInputDevice(videoDevices[0].deviceId);
+            meetingSession.audioVideo.startLocalVideoTile();
+            toggleVideoBtn.textContent = '📹 Turn Off Video';
+            toggleVideoBtn.classList.add('active');
+            isVideoOn = true;
+            updateStatus('Video turned on', 'success');
+          } else {
+            updateStatus('❌ No camera detected', 'error');
+          }
+        }
+      } catch (err) {
+        console.error('Toggle video error:', err);
+        updateStatus('❌ Error toggling video', 'error');
+      }
+    }
+    
+    async function toggleMute() {
+      if (!meetingSession) return;
+      
+      try {
+        if (isMuted) {
+          const audioDevices = await meetingSession.audioVideo.listAudioInputDevices();
+          if (audioDevices.length > 0) {
+            await meetingSession.audioVideo.chooseAudioInputDevice(audioDevices[0].deviceId);
+            toggleMuteBtn.textContent = '🎤 Mute';
+            toggleMuteBtn.classList.remove('active');
+            isMuted = false;
+            updateStatus('Microphone unmuted', 'success');
+          }
+        } else {
+          await meetingSession.audioVideo.stopAudioInput();
+          toggleMuteBtn.textContent = '🎤 Unmute';
+          toggleMuteBtn.classList.add('active');
+          isMuted = true;
+          updateStatus('Microphone muted', 'info');
+        }
+      } catch (err) {
+        console.error('Toggle mute error:', err);
+        updateStatus('❌ Error toggling mute', 'error');
+      }
+    }
+    
+    function endCall() {
+      if (meetingSession) {
+        if (isVideoOn) {
+          meetingSession.audioVideo.stopLocalVideoTile();
+        }
+        meetingSession.audioVideo.stop();
+        
+        if (audioElement) {
+          audioElement.pause();
+          document.body.removeChild(audioElement);
+          audioElement = null;
+        }
+        
+        meetingSession = null;
+      }
+      
+      // Reset UI
+      videoSection.classList.remove('active');
+      customerPlaceholder.style.display = 'flex';
+      agentPlaceholder.style.display = 'none';
+      
+      toggleVideoBtn.disabled = true;
+      toggleMuteBtn.disabled = true;
+      endCallBtn.disabled = true;
+      
+      toggleVideoBtn.textContent = '📹 Turn On Video';
+      toggleMuteBtn.textContent = '🎤 Mute';
+      toggleVideoBtn.classList.remove('active');
+      toggleMuteBtn.classList.remove('active');
+      
+      isVideoOn = false;
+      isMuted = false;
+      currentContactId = null;
+      
+      updateStatus('Call ended. Ready for next call.', 'success');
+    }
+    
+    function rejectCall() {
+      if (currentContactId) {
+        fetch(`${BACKEND_URL}/api/reject-call`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contactId: currentContactId }),
-        });
-      });
-      videoButton.addEventListener('click', toggleVideo);
-      muteButton.addEventListener('click', toggleMute);
-      endButton.addEventListener('click', endSession);
-
-      updateStatus('Waiting for incoming calls...');
+        }).catch(err => console.error('Reject call error:', err));
+      }
+      
+      hideIncomingCall();
+      updateStatus('Call rejected', 'info');
     }
-
-    // Load Amazon Chime SDK dynamically
-    const
+    
+    function updateStatus(message, type) {
+      statusMessage.textContent = message;
+      statusMessage.className = `status-message ${type}`;
+    }
+  </script>
+</body>
+</html>
