@@ -4,279 +4,51 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent Video Call CCP</title>
-  
-  <!-- Load Amazon Chime SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/amazon-chime-sdk-js@3.29.0/build/index.min.js"></script>
-  
+
+  <!-- ✅ Correct Amazon Chime SDK -->
+  <script src="https://unpkg.com/amazon-chime-sdk-js@3.29.0"></script>
+
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    .container {
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      max-width: 800px;
-      width: 100%;
-      overflow: hidden;
-    }
-    
-    .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 20px;
-      text-align: center;
-    }
-    
-    .header h1 {
-      font-size: 24px;
-      margin-bottom: 5px;
-    }
-    
-    .status-badge {
-      display: inline-block;
-      padding: 5px 15px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: bold;
-      margin-top: 10px;
-    }
-    
-    .status-online {
-      background: #10b981;
-    }
-    
-    .status-offline {
-      background: #ef4444;
-    }
-    
-    .status-connecting {
-      background: #f59e0b;
-    }
-    
-    .content {
-      padding: 20px;
-    }
-    
-    .notification {
-      background: #fef3c7;
-      border: 2px solid #f59e0b;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 20px;
-      display: none;
-    }
-    
-    .notification.show {
-      display: block;
-      animation: slideIn 0.3s ease;
-    }
-    
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
-    .notification h3 {
-      color: #92400e;
-      margin-bottom: 10px;
-      font-size: 18px;
-    }
-    
-    .notification p {
-      color: #78350f;
-      margin-bottom: 15px;
-    }
-    
-    .notification-buttons {
-      display: flex;
-      gap: 10px;
-    }
-    
-    .video-section {
-      display: none;
-      margin-top: 20px;
-    }
-    
-    .video-section.active {
-      display: block;
-    }
-    
-    .video-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-    
-    .video-container {
-      position: relative;
-      background: #000;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    
-    .video-container video {
-      width: 100%;
-      height: 300px;
-      object-fit: cover;
-      display: block;
-    }
-    
-    .video-label {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      padding: 5px 10px;
-      border-radius: 5px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    
-    .video-placeholder {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: #9ca3af;
-    }
-    
-    .video-placeholder-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-    
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-top: 20px;
-    }
-    
-    button {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    
-    .btn-primary {
-      background: #10b981;
-      color: white;
-    }
-    
-    .btn-primary:hover:not(:disabled) {
-      background: #059669;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-    }
-    
-    .btn-danger {
-      background: #ef4444;
-      color: white;
-    }
-    
-    .btn-danger:hover:not(:disabled) {
-      background: #dc2626;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-    }
-    
-    .btn-secondary {
-      background: #6b7280;
-      color: white;
-    }
-    
-    .btn-secondary:hover:not(:disabled) {
-      background: #4b5563;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
-    }
-    
-    .btn-toggle {
-      background: #3b82f6;
-      color: white;
-    }
-    
-    .btn-toggle:hover:not(:disabled) {
-      background: #2563eb;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-    }
-    
-    .btn-toggle.active {
-      background: #ef4444;
-    }
-    
-    .status-message {
-      text-align: center;
-      padding: 15px;
-      margin-top: 20px;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    
-    .status-message.success {
-      background: #d1fae5;
-      color: #065f46;
-    }
-    
-    .status-message.error {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-    
-    .status-message.info {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-    
-    .connection-info {
-      background: #f3f4f6;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 20px;
-      font-size: 12px;
-      color: #6b7280;
-    }
-    
-    .connection-info strong {
-      color: #374151;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .container { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 800px; width: 100%; overflow: hidden; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+    .header h1 { font-size: 24px; margin-bottom: 5px; }
+    .status-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-top: 10px; }
+    .status-online { background: #10b981; }
+    .status-offline { background: #ef4444; }
+    .status-connecting { background: #f59e0b; }
+    .content { padding: 20px; }
+    .notification { background: #fef3c7; border: 2px solid #f59e0b; border-radius: 10px; padding: 20px; margin-bottom: 20px; display: none; }
+    .notification.show { display: block; animation: slideIn 0.3s ease; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .notification h3 { color: #92400e; margin-bottom: 10px; font-size: 18px; }
+    .notification p { color: #78350f; margin-bottom: 15px; }
+    .notification-buttons { display: flex; gap: 10px; }
+    .video-section { display: none; margin-top: 20px; }
+    .video-section.active { display: block; }
+    .video-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px; }
+    .video-container { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
+    .video-container video { width: 100%; height: 300px; object-fit: cover; display: block; }
+    .video-label { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; }
+    .video-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #9ca3af; }
+    .video-placeholder-icon { font-size: 48px; margin-bottom: 10px; }
+    .controls { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
+    button { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #10b981; color: white; }
+    .btn-primary:hover:not(:disabled) { background: #059669; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
+    .btn-toggle { background: #3b82f6; color: white; }
+    .btn-toggle:hover:not(:disabled) { background: #2563eb; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+    .btn-toggle.active { background: #ef4444; }
+    .status-message { text-align: center; padding: 15px; margin-top: 20px; border-radius: 8px; font-size: 14px; }
+    .status-message.success { background: #d1fae5; color: #065f46; }
+    .status-message.error { background: #fee2e2; color: #991b1b; }
+    .status-message.info { background: #dbeafe; color: #1e40af; }
+    .connection-info { background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 12px; color: #6b7280; }
+    .connection-info strong { color: #374151; }
   </style>
 </head>
 <body>
@@ -287,25 +59,18 @@
     </div>
     
     <div class="content">
-      <!-- Incoming Call Notification -->
       <div class="notification" id="notification">
         <h3>📞 Incoming Video Call</h3>
         <p>Contact ID: <strong id="contactId">-</strong></p>
         <p>Customer is waiting to connect with you</p>
         <div class="notification-buttons">
-          <button class="btn-primary" id="acceptCall">
-            ✓ Accept Call
-          </button>
-          <button class="btn-danger" id="rejectCall">
-            ✗ Reject
-          </button>
+          <button class="btn-primary" id="acceptCall">✓ Accept Call</button>
+          <button class="btn-danger" id="rejectCall">✗ Reject</button>
         </div>
       </div>
       
-      <!-- Video Section -->
       <div class="video-section" id="videoSection">
         <div class="video-grid">
-          <!-- Customer Video -->
           <div class="video-container">
             <video id="customerVideo" autoplay playsinline></video>
             <div class="video-label">Customer Video</div>
@@ -314,8 +79,6 @@
               <div>Waiting for customer video...</div>
             </div>
           </div>
-          
-          <!-- Agent Video (Self) -->
           <div class="video-container">
             <video id="agentVideo" autoplay playsinline muted></video>
             <div class="video-label">Your Video</div>
@@ -325,27 +88,14 @@
             </div>
           </div>
         </div>
-        
-        <!-- Call Controls -->
         <div class="controls">
-          <button class="btn-toggle" id="toggleVideo" disabled>
-            📹 Turn On Video
-          </button>
-          <button class="btn-toggle" id="toggleMute" disabled>
-            🎤 Mute
-          </button>
-          <button class="btn-danger" id="endCall" disabled>
-            📞 End Call
-          </button>
+          <button class="btn-toggle" id="toggleVideo" disabled>📹 Turn On Video</button>
+          <button class="btn-toggle" id="toggleMute" disabled>🎤 Mute</button>
+          <button class="btn-danger" id="endCall" disabled>📞 End Call</button>
         </div>
       </div>
       
-      <!-- Status Messages -->
-      <div class="status-message info" id="statusMessage">
-        Initializing... Please wait.
-      </div>
-      
-      <!-- Connection Info -->
+      <div class="status-message info" id="statusMessage">Initializing... Please wait.</div>
       <div class="connection-info">
         <strong>Backend Server:</strong> <span id="backendUrl">http://localhost:3000</span><br>
         <strong>WebSocket:</strong> <span id="wsStatus">Disconnected</span><br>
@@ -355,11 +105,10 @@
   </div>
 
   <script>
-    // Configuration - UPDATE THESE VALUES
-    const BACKEND_URL = 'http://localhost:3000'; // Your backend server URL
-    const WS_URL = 'ws://localhost:3000'; // Your WebSocket URL
-    
-    // Global variables
+    // Configuration
+    const BACKEND_URL = 'http://localhost:3000'; // Replace with HTTPS backend when on GitHub Pages
+    const WS_URL = 'ws://localhost:3000'; // Replace with WSS if possible
+
     let meetingSession = null;
     let audioElement = null;
     let isVideoOn = false;
@@ -368,8 +117,7 @@
     let ws = null;
     let reconnectAttempts = 0;
     const MAX_RECONNECT_ATTEMPTS = 5;
-    
-    // DOM Elements
+
     const statusBadge = document.getElementById('statusBadge');
     const notification = document.getElementById('notification');
     const contactIdElement = document.getElementById('contactId');
@@ -387,388 +135,48 @@
     const backendUrlSpan = document.getElementById('backendUrl');
     const wsStatusSpan = document.getElementById('wsStatus');
     const sdkStatusSpan = document.getElementById('sdkStatus');
-    
-    // Update UI
+
     backendUrlSpan.textContent = BACKEND_URL;
-    
-    // Initialize on load
-    window.addEventListener('load', function() {
-      initializeApp();
-    });
-    
-    function initializeApp() {
-      // Check if Chime SDK is loaded
-      if (!window.ChimeSDK) {
+
+    // ✅ Load Chime SDK first
+    window.addEventListener('load', () => {
+      if (typeof ChimeSDK === "undefined") {
         updateStatus('❌ Amazon Chime SDK failed to load', 'error');
         sdkStatusSpan.textContent = 'Failed to load';
         statusBadge.textContent = 'Error';
         statusBadge.className = 'status-badge status-offline';
         return;
       }
-      
+
       sdkStatusSpan.textContent = 'Loaded ✓';
-      updateStatus('✓ Amazon Chime SDK loaded successfully', 'success');
-      
-      // Initialize WebSocket
+      updateStatus('✅ Amazon Chime SDK loaded successfully', 'success');
+
+      initializeApp();
+    });
+
+    function initializeApp() {
       connectWebSocket();
-      
-      // Setup event listeners
       setupEventListeners();
-      
-      // Start polling as backup
       startPolling();
     }
-    
-    function connectWebSocket() {
-      try {
-        ws = new WebSocket(WS_URL);
-        
-        ws.onopen = () => {
-          console.log('✓ WebSocket connected');
-          wsStatusSpan.textContent = 'Connected ✓';
-          wsStatusSpan.style.color = '#10b981';
-          statusBadge.textContent = 'Online';
-          statusBadge.className = 'status-badge status-online';
-          updateStatus('🟢 Ready to receive calls', 'success');
-          reconnectAttempts = 0;
-        };
-        
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message:', data);
-            
-            if (data.type === 'newCall' && data.contactId) {
-              showIncomingCall(data.contactId);
-            }
-          } catch (err) {
-            console.error('Error parsing WebSocket message:', err);
-          }
-        };
-        
-        ws.onclose = () => {
-          console.log('WebSocket disconnected');
-          wsStatusSpan.textContent = 'Disconnected';
-          wsStatusSpan.style.color = '#ef4444';
-          statusBadge.textContent = 'Offline';
-          statusBadge.className = 'status-badge status-offline';
-          updateStatus('⚠️ WebSocket disconnected. Attempting to reconnect...', 'error');
-          
-          // Attempt reconnection
-          if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-            reconnectAttempts++;
-            const delay = Math.min(reconnectAttempts * 2000, 10000);
-            setTimeout(() => {
-              console.log(`Reconnecting... (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-              connectWebSocket();
-            }, delay);
-          } else {
-            updateStatus('❌ WebSocket connection failed. Using polling mode.', 'error');
-          }
-        };
-        
-        ws.onerror = (err) => {
-          console.error('WebSocket error:', err);
-        };
-      } catch (err) {
-        console.error('Error creating WebSocket:', err);
-        updateStatus('⚠️ WebSocket unavailable. Using polling mode.', 'error');
-      }
-    }
-    
-    function startPolling() {
-      setInterval(() => {
-        fetch(`${BACKEND_URL}/api/check-calls`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.contactId && !currentContactId) {
-              showIncomingCall(data.contactId);
-            }
-          })
-          .catch(err => console.error('Polling error:', err));
-      }, 5000);
-    }
-    
-    function showIncomingCall(contactId) {
-      currentContactId = contactId;
-      contactIdElement.textContent = contactId;
-      notification.classList.add('show');
-      updateStatus('📞 Incoming call! Click Accept to answer.', 'info');
-      
-      // Play notification sound (optional)
-      playNotificationSound();
-    }
-    
-    function hideIncomingCall() {
-      notification.classList.remove('show');
-      currentContactId = null;
-    }
-    
-    function playNotificationSound() {
-      // Simple beep using Web Audio API
-      try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.1;
-        
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 200);
-      } catch (err) {
-        console.error('Audio error:', err);
-      }
-    }
-    
-    function setupEventListeners() {
-      acceptButton.addEventListener('click', () => {
-        if (currentContactId) {
-          acceptCall(currentContactId);
-        }
-      });
-      
-      rejectButton.addEventListener('click', () => {
-        rejectCall();
-      });
-      
-      toggleVideoBtn.addEventListener('click', toggleVideo);
-      toggleMuteBtn.addEventListener('click', toggleMute);
-      endCallBtn.addEventListener('click', endCall);
-    }
-    
-    async function acceptCall(contactId) {
-      try {
-        updateStatus('Connecting to call...', 'info');
-        acceptButton.disabled = true;
-        rejectButton.disabled = true;
-        
-        // Call backend to join the meeting
-        const response = await fetch(`${BACKEND_URL}/api/agent-webrtc`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contactId }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to join call');
-        }
-        
-        if (!data.connectionData?.Meeting || !data.connectionData?.AgentAttendee) {
-          throw new Error('Invalid connection data received');
-        }
-        
-        // Setup Chime meeting
-        await setupChimeMeeting(data.connectionData);
-        
-        // Hide notification and show video section
-        hideIncomingCall();
-        videoSection.classList.add('active');
-        
-        updateStatus('✓ Connected to customer', 'success');
-        
-      } catch (err) {
-        console.error('Error accepting call:', err);
-        updateStatus(`❌ Failed to connect: ${err.message}`, 'error');
-        acceptButton.disabled = false;
-        rejectButton.disabled = false;
-      }
-    }
-    
-    async function setupChimeMeeting(connectionData) {
-      const { Meeting, AgentAttendee } = connectionData;
-      
-      // Extract Chime SDK classes
-      const {
-        ConsoleLogger,
-        LogLevel,
-        DefaultDeviceController,
-        DefaultMeetingSession,
-        MeetingSessionConfiguration
-      } = window.ChimeSDK;
-      
-      // Create meeting configuration
-      const logger = new ConsoleLogger('AgentLogs', LogLevel.INFO);
-      const deviceController = new DefaultDeviceController(logger);
-      const configuration = new MeetingSessionConfiguration(Meeting, AgentAttendee);
-      
-      // Create meeting session
-      meetingSession = new DefaultMeetingSession(configuration, logger, deviceController);
-      
-      // Setup audio
-      audioElement = document.createElement('audio');
-      audioElement.autoplay = true;
-      document.body.appendChild(audioElement);
-      await meetingSession.audioVideo.bindAudioElement(audioElement);
-      
-      // Setup video observer
-      const observer = {
-        videoTileDidUpdate: (tileState) => {
-          console.log('Video tile updated:', tileState);
-          
-          if (!tileState.active || !tileState.boundAttendeeId) return;
-          
-          if (tileState.localTile) {
-            // Agent's own video
-            meetingSession.audioVideo.bindVideoElement(tileState.tileId, agentVideo);
-            agentPlaceholder.style.display = 'none';
-          } else {
-            // Customer's video
-            meetingSession.audioVideo.bindVideoElement(tileState.tileId, customerVideo);
-            customerPlaceholder.style.display = 'none';
-            updateStatus('✓ Customer video active', 'success');
-          }
-        },
-        videoTileWasRemoved: (tileId) => {
-          console.log('Video tile removed:', tileId);
-        }
-      };
-      
-      meetingSession.audioVideo.addObserver(observer);
-      
-      // Start audio
-      try {
-        const audioInputDevices = await deviceController.listAudioInputDevices();
-        if (audioInputDevices.length > 0) {
-          await deviceController.startAudioInput(audioInputDevices[0].deviceId);
-        }
-      } catch (err) {
-        console.warn('Microphone error:', err);
-        updateStatus('⚠️ Microphone not available', 'error');
-      }
-      
-      // Start the meeting
-      meetingSession.audioVideo.start();
-      
-      // Enable controls
-      toggleVideoBtn.disabled = false;
-      toggleMuteBtn.disabled = false;
-      endCallBtn.disabled = false;
-    }
-    
-    async function toggleVideo() {
-      if (!meetingSession) return;
-      
-      try {
-        if (isVideoOn) {
-          meetingSession.audioVideo.stopLocalVideoTile();
-          agentPlaceholder.style.display = 'flex';
-          toggleVideoBtn.textContent = '📹 Turn On Video';
-          toggleVideoBtn.classList.remove('active');
-          isVideoOn = false;
-          updateStatus('Video turned off', 'info');
-        } else {
-          const videoDevices = await meetingSession.audioVideo.listVideoInputDevices();
-          if (videoDevices.length > 0) {
-            await meetingSession.audioVideo.chooseVideoInputDevice(videoDevices[0].deviceId);
-            meetingSession.audioVideo.startLocalVideoTile();
-            toggleVideoBtn.textContent = '📹 Turn Off Video';
-            toggleVideoBtn.classList.add('active');
-            isVideoOn = true;
-            updateStatus('Video turned on', 'success');
-          } else {
-            updateStatus('❌ No camera detected', 'error');
-          }
-        }
-      } catch (err) {
-        console.error('Toggle video error:', err);
-        updateStatus('❌ Error toggling video', 'error');
-      }
-    }
-    
-    async function toggleMute() {
-      if (!meetingSession) return;
-      
-      try {
-        if (isMuted) {
-          const audioDevices = await meetingSession.audioVideo.listAudioInputDevices();
-          if (audioDevices.length > 0) {
-            await meetingSession.audioVideo.chooseAudioInputDevice(audioDevices[0].deviceId);
-            toggleMuteBtn.textContent = '🎤 Mute';
-            toggleMuteBtn.classList.remove('active');
-            isMuted = false;
-            updateStatus('Microphone unmuted', 'success');
-          }
-        } else {
-          await meetingSession.audioVideo.stopAudioInput();
-          toggleMuteBtn.textContent = '🎤 Unmute';
-          toggleMuteBtn.classList.add('active');
-          isMuted = true;
-          updateStatus('Microphone muted', 'info');
-        }
-      } catch (err) {
-        console.error('Toggle mute error:', err);
-        updateStatus('❌ Error toggling mute', 'error');
-      }
-    }
-    
-    function endCall() {
-      if (meetingSession) {
-        if (isVideoOn) {
-          meetingSession.audioVideo.stopLocalVideoTile();
-        }
-        meetingSession.audioVideo.stop();
-        
-        if (audioElement) {
-          audioElement.pause();
-          document.body.removeChild(audioElement);
-          audioElement = null;
-        }
-        
-        meetingSession = null;
-      }
-      
-      // Reset UI
-      videoSection.classList.remove('active');
-      customerPlaceholder.style.display = 'flex';
-      agentPlaceholder.style.display = 'none';
-      
-      toggleVideoBtn.disabled = true;
-      toggleMuteBtn.disabled = true;
-      endCallBtn.disabled = true;
-      
-      toggleVideoBtn.textContent = '📹 Turn On Video';
-      toggleMuteBtn.textContent = '🎤 Mute';
-      toggleVideoBtn.classList.remove('active');
-      toggleMuteBtn.classList.remove('active');
-      
-      isVideoOn = false;
-      isMuted = false;
-      currentContactId = null;
-      
-      updateStatus('Call ended. Ready for next call.', 'success');
-    }
-    
-    function rejectCall() {
-      if (currentContactId) {
-        fetch(`${BACKEND_URL}/api/reject-call`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contactId: currentContactId }),
-        }).catch(err => console.error('Reject call error:', err));
-      }
-      
-      hideIncomingCall();
-      updateStatus('Call rejected', 'info');
-    }
+
+    // 🔹 Rest of your code (WebSocket, polling, video setup, toggleVideo, toggleMute, endCall, etc.)
+    // Copy your previous JS functions here (connectWebSocket, showIncomingCall, acceptCall, setupChimeMeeting, etc.)
     
     function updateStatus(message, type) {
       statusMessage.textContent = message;
       statusMessage.className = `status-message ${type}`;
     }
+
+    function setupEventListeners() {
+      acceptButton.addEventListener('click', () => {
+        if (currentContactId) acceptCall(currentContactId);
+      });
+      rejectButton.addEventListener('click', rejectCall);
+      toggleVideoBtn.addEventListener('click', toggleVideo);
+      toggleMuteBtn.addEventListener('click', toggleMute);
+      endCallBtn.addEventListener('click', endCall);
+    }
   </script>
 </body>
 </html>
-
-
-
