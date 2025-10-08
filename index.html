@@ -115,63 +115,65 @@
       updateStatus('Waiting for incoming calls...');
     }
 
-    async function startAgentSession(contactId) {
-      try {
-        updateStatus('Connecting...');
-        const response = await fetch('https://your-backend.com/api/agent-webrtc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contactId }),
-        });
-        const data = await response.json();
-        console.log('API Response:', JSON.stringify(data, null, 2));
-        if (!data.success) throw new Error(data.error || 'Failed to start call');
+   async function startAgentSession(contactId) {
+  try {
+    updateStatus('Connecting...');
+    const response = await fetch('https://your-backend.com/api/agent-webrtc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contactId }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to start call');
 
-        const { Meeting, AgentAttendee } = data.connectionData;
-        const logger = new ConsoleLogger('AgentLogs', LogLevel.INFO);
-        const deviceController = new DefaultDeviceController(logger);
-        const configuration = new MeetingSessionConfiguration(Meeting, AgentAttendee);
-        meetingSession = new DefaultMeetingSession(configuration, logger, deviceController);
+    const { Meeting, AgentAttendee } = data.connectionData;
+    const logger = new ConsoleLogger('AgentLogs', LogLevel.INFO);
+    const deviceController = new DefaultDeviceController(logger);
+    const configuration = new MeetingSessionConfiguration(Meeting, AgentAttendee);
+    meetingSession = new DefaultMeetingSession(configuration, logger, deviceController);
 
-        audioElement = document.createElement('audio');
-        audioElement.autoplay = true;
-        document.body.appendChild(audioElement);
-        await meetingSession.audioVideo.bindAudioElement(audioElement);
-        console.log('Agent audio bound');
+    audioElement = document.createElement('audio');
+    audioElement.autoplay = true;
+    document.body.appendChild(audioElement);
+    await meetingSession.audioVideo.bindAudioElement(audioElement);
 
-        try {
-          const videoInputDevices = await deviceController.listVideoInputDevices();
-          if (videoInputDevices.length > 0) {
-            await deviceController.chooseVideoInputDevice(videoInputDevices[0].deviceId);
-            meetingSession.audioVideo.startLocalVideoTile();
-            const localTile = meetingSession.audioVideo.getLocalVideoTile();
-            if (localTile && videoElement) {
-              meetingSession.audioVideo.bindVideoElement(localTile.state().tileId, videoElement);
-              isVideoOn = true;
-              videoButton.textContent = 'Turn Off Video';
-              updateStatus('Video enabled');
-            }
-          } else {
-            updateStatus('No camera detected', true);
-          }
-        } catch (err) {
-          console.error('Error enabling video:', err);
-          updateStatus('Failed to enable video', true);
+    // Check camera permissions
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop()); // Release the stream
+      const videoInputDevices = await deviceController.listVideoInputDevices();
+      if (videoInputDevices.length > 0) {
+        await deviceController.chooseVideoInputDevice(videoInputDevices[0].deviceId);
+        meetingSession.audioVideo.startLocalVideoTile();
+        const localTile = meetingSession.audioVideo.getLocalVideoTile();
+        if (localTile && videoElement) {
+          meetingSession.audioVideo.bindVideoElement(localTile.state().tileId, videoElement);
+          isVideoOn = true;
+          videoButton.textContent = 'Turn Off Video';
+          updateStatus('Video enabled');
+        } else {
+          updateStatus('No video tile available', true);
         }
-
-        meetingSession.audioVideo.start();
-        updateStatus('Connected to customer');
-        videoButton.disabled = false;
-        muteButton.disabled = false;
-        endButton.disabled = false;
-        hideNotification();
-      } catch (err) {
-        console.error('Error starting session:', err);
-        updateStatus('Failed to connect: ' + err.message, true);
-        hideNotification();
+      } else {
+        updateStatus('No camera detected', true);
       }
+    } catch (err) {
+      console.error('Camera access error:', err);
+      updateStatus('Camera access denied or no camera available', true);
     }
 
+    meetingSession.audioVideo.start();
+    updateStatus('Connected to customer');
+    videoButton.disabled = false;
+    muteButton.disabled = false;
+    endButton.disabled = false;
+    hideNotification();
+  } catch (err) {
+    console.error('Error starting session:', err);
+    updateStatus('Failed to connect: ' + err.message, true);
+    hideNotification();
+  }
+}
     async function toggleVideo() {
       if (!meetingSession) return;
       try {
@@ -292,4 +294,5 @@
     endButton.addEventListener('click', endSession);
   </script>
 </body>
+
 </html>
