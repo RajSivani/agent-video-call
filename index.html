@@ -1,187 +1,120 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agent Video Call CCP</title>
-
-  <!-- ✅ Correct Amazon Chime SDK -->
-<!-- <script src="https://unpkg.com/amazon-chime-sdk-js@3.29.0/build/index.js"></script> -->
-  <script src="https://cdn.jsdelivr.net/npm/amazon-chime-sdk-js@3.29.0/build/index.js"></script>
-
-
-
+  <title>Agent Video Call</title>
+  <script src="https://unpkg.com/amazon-chime-sdk-js@3.x/dist/amazon-chime-sdk.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    .container { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 800px; width: 100%; overflow: hidden; }
-    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
-    .header h1 { font-size: 24px; margin-bottom: 5px; }
-    .status-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-top: 10px; }
-    .status-online { background: #10b981; }
-    .status-offline { background: #ef4444; }
-    .status-connecting { background: #f59e0b; }
-    .content { padding: 20px; }
-    .notification { background: #fef3c7; border: 2px solid #f59e0b; border-radius: 10px; padding: 20px; margin-bottom: 20px; display: none; }
-    .notification.show { display: block; animation: slideIn 0.3s ease; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    .notification h3 { color: #92400e; margin-bottom: 10px; font-size: 18px; }
-    .notification p { color: #78350f; margin-bottom: 15px; }
-    .notification-buttons { display: flex; gap: 10px; }
-    .video-section { display: none; margin-top: 20px; }
-    .video-section.active { display: block; }
-    .video-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px; }
-    .video-container { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
-    .video-container video { width: 100%; height: 300px; object-fit: cover; display: block; }
-    .video-label { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; }
-    .video-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #9ca3af; }
-    .video-placeholder-icon { font-size: 48px; margin-bottom: 10px; }
-    .controls { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
-    button { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #10b981; color: white; }
-    .btn-primary:hover:not(:disabled) { background: #059669; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
-    .btn-danger { background: #ef4444; color: white; }
-    .btn-danger:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
-    .btn-toggle { background: #3b82f6; color: white; }
-    .btn-toggle:hover:not(:disabled) { background: #2563eb; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
-    .btn-toggle.active { background: #ef4444; }
-    .status-message { text-align: center; padding: 15px; margin-top: 20px; border-radius: 8px; font-size: 14px; }
-    .status-message.success { background: #d1fae5; color: #065f46; }
-    .status-message.error { background: #fee2e2; color: #991b1b; }
-    .status-message.info { background: #dbeafe; color: #1e40af; }
-    .connection-info { background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 12px; color: #6b7280; }
-    .connection-info strong { color: #374151; }
+    video { width: 100%; max-width: 640px; height: auto; background: black; }
+    #controls { margin-top: 10px; }
+    button { margin: 5px; padding: 10px; }
+    input { padding: 10px; margin: 5px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>🎥 Agent Video Call Center</h1>
-      <div class="status-badge status-offline" id="statusBadge">Connecting...</div>
-    </div>
-    
-    <div class="content">
-      <div class="notification" id="notification">
-        <h3>📞 Incoming Video Call</h3>
-        <p>Contact ID: <strong id="contactId">-</strong></p>
-        <p>Customer is waiting to connect with you</p>
-        <div class="notification-buttons">
-          <button class="btn-primary" id="acceptCall">✓ Accept Call</button>
-          <button class="btn-danger" id="rejectCall">✗ Reject</button>
-        </div>
-      </div>
-      
-      <div class="video-section" id="videoSection">
-        <div class="video-grid">
-          <div class="video-container">
-            <video id="customerVideo" autoplay playsinline></video>
-            <div class="video-label">Customer Video</div>
-            <div class="video-placeholder" id="customerPlaceholder">
-              <div class="video-placeholder-icon">📹</div>
-              <div>Waiting for customer video...</div>
-            </div>
-          </div>
-          <div class="video-container">
-            <video id="agentVideo" autoplay playsinline muted></video>
-            <div class="video-label">Your Video</div>
-            <div class="video-placeholder" id="agentPlaceholder" style="display: none;">
-              <div class="video-placeholder-icon">📷</div>
-              <div>Your video is off</div>
-            </div>
-          </div>
-        </div>
-        <div class="controls">
-          <button class="btn-toggle" id="toggleVideo" disabled>📹 Turn On Video</button>
-          <button class="btn-toggle" id="toggleMute" disabled>🎤 Mute</button>
-          <button class="btn-danger" id="endCall" disabled>📞 End Call</button>
-        </div>
-      </div>
-      
-      <div class="status-message info" id="statusMessage">Initializing... Please wait.</div>
-      <div class="connection-info">
-        <strong>Backend Server:</strong> <span id="backendUrl">http://localhost:3000</span><br>
-        <strong>WebSocket:</strong> <span id="wsStatus">Disconnected</span><br>
-        <strong>SDK Status:</strong> <span id="sdkStatus">Loading...</span>
-      </div>
-    </div>
+  <input id="contactId" type="text" placeholder="Enter contactId" />
+  <button id="join-call">Join Call</button>
+  <video id="agent-video" autoplay playsinline></video>
+  <div id="controls">
+    <button id="end-call">End Call</button>
+    <button id="toggle-mute">Mute</button>
+    <button id="toggle-video">Turn On Video</button>
   </div>
-
   <script>
-    // Configuration
-    const BACKEND_URL = 'http://localhost:3000'; // Replace with HTTPS backend when on GitHub Pages
-    const WS_URL = 'ws://localhost:3000'; // Replace with WSS if possible
+    const API_BASE_URL = 'https://your-api-id.execute-api.us-west-2.amazonaws.com/dev'; // Replace with API Gateway URL
+    let meetingSession, deviceController, isMuted = false, isVideoOn = false;
 
-    let meetingSession = null;
-    let audioElement = null;
-    let isVideoOn = false;
-    let isMuted = false;
-    let currentContactId = null;
-    let ws = null;
-    let reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 5;
-
-    const statusBadge = document.getElementById('statusBadge');
-    const notification = document.getElementById('notification');
-    const contactIdElement = document.getElementById('contactId');
-    const acceptButton = document.getElementById('acceptCall');
-    const rejectButton = document.getElementById('rejectCall');
-    const videoSection = document.getElementById('videoSection');
-    const customerVideo = document.getElementById('customerVideo');
-    const agentVideo = document.getElementById('agentVideo');
-    const customerPlaceholder = document.getElementById('customerPlaceholder');
-    const agentPlaceholder = document.getElementById('agentPlaceholder');
-    const toggleVideoBtn = document.getElementById('toggleVideo');
-    const toggleMuteBtn = document.getElementById('toggleMute');
-    const endCallBtn = document.getElementById('endCall');
-    const statusMessage = document.getElementById('statusMessage');
-    const backendUrlSpan = document.getElementById('backendUrl');
-    const wsStatusSpan = document.getElementById('wsStatus');
-    const sdkStatusSpan = document.getElementById('sdkStatus');
-
-    backendUrlSpan.textContent = BACKEND_URL;
-
-    // ✅ Load Chime SDK first
-    window.addEventListener('load', () => {
-      if (typeof ChimeSDK === "undefined") {
-        updateStatus('❌ Amazon Chime SDK failed to load', 'error');
-        sdkStatusSpan.textContent = 'Failed to load';
-        statusBadge.textContent = 'Error';
-        statusBadge.className = 'status-badge status-offline';
+    document.getElementById('join-call').addEventListener('click', async () => {
+      const contactId = document.getElementById('contactId').value;
+      if (!contactId) {
+        alert('Please enter a contactId');
         return;
       }
 
-      sdkStatusSpan.textContent = 'Loaded ✓';
-      updateStatus('✅ Amazon Chime SDK loaded successfully', 'success');
+      try {
+        const response = await fetch(`${API_BASE_URL}/agent-webrtc`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contactId }),
+        });
+        const { success, connectionData } = await response.json();
+        if (!success) throw new Error(connectionData.error || 'Failed to join call');
 
-      initializeApp();
+        const { Meeting, AgentAttendee } = connectionData;
+        const configuration = new window.amazonChimeSDK.MeetingSessionConfiguration(Meeting, AgentAttendee);
+        const logger = new window.amazonChimeSDK.ConsoleLogger('ChimeMeetingLogs', window.amazonChimeSDK.LogLevel.INFO);
+        deviceController = new window.amazonChimeSDK.DefaultDeviceController(logger);
+        meetingSession = new window.amazonChimeSDK.DefaultMeetingSession(configuration, logger, deviceController);
+
+        const audioElement = document.createElement('audio');
+        audioElement.autoplay = true;
+        document.body.appendChild(audioElement);
+        await meetingSession.audioVideo.bindAudioElement(audioElement);
+
+        const videoElement = document.getElementById('agent-video');
+        const videoInputDevices = await deviceController.listVideoInputDevices();
+        if (videoInputDevices.length > 0) {
+          await deviceController.chooseVideoInputDevice(videoInputDevices[0].deviceId);
+          meetingSession.audioVideo.startLocalVideoTile();
+          meetingSession.audioVideo.bindVideoElement(1, videoElement);
+          isVideoOn = true;
+          document.getElementById('toggle-video').textContent = 'Turn Off Video';
+        }
+
+        meetingSession.audioVideo.start();
+      } catch (err) {
+        console.error('Error joining call:', err);
+        alert('Failed to join call: ' + err.message);
+      }
     });
 
-    function initializeApp() {
-      connectWebSocket();
-      setupEventListeners();
-      startPolling();
-    }
+    document.getElementById('end-call').addEventListener('click', () => {
+      if (meetingSession) {
+        meetingSession.audioVideo.stop();
+        document.querySelectorAll('audio, video').forEach(el => el.remove());
+        isMuted = false;
+        isVideoOn = false;
+        document.getElementById('toggle-mute').textContent = 'Mute';
+        document.getElementById('toggle-video').textContent = 'Turn On Video';
+      }
+    });
 
-    // 🔹 Rest of your code (WebSocket, polling, video setup, toggleVideo, toggleMute, endCall, etc.)
-    // Copy your previous JS functions here (connectWebSocket, showIncomingCall, acceptCall, setupChimeMeeting, etc.)
-    
-    function updateStatus(message, type) {
-      statusMessage.textContent = message;
-      statusMessage.className = `status-message ${type}`;
-    }
+    document.getElementById('toggle-mute').addEventListener('click', async () => {
+      if (meetingSession && deviceController) {
+        if (isMuted) {
+          const audioInputDevices = await deviceController.listAudioInputDevices();
+          if (audioInputDevices.length > 0) {
+            await deviceController.startAudioInput(audioInputDevices[0].deviceId);
+            document.getElementById('toggle-mute').textContent = 'Mute';
+            isMuted = false;
+          }
+        } else {
+          await deviceController.stopAudioInput();
+          document.getElementById('toggle-mute').textContent = 'Unmute';
+          isMuted = true;
+        }
+      }
+    });
 
-    function setupEventListeners() {
-      acceptButton.addEventListener('click', () => {
-        if (currentContactId) acceptCall(currentContactId);
-      });
-      rejectButton.addEventListener('click', rejectCall);
-      toggleVideoBtn.addEventListener('click', toggleVideo);
-      toggleMuteBtn.addEventListener('click', toggleMute);
-      endCallBtn.addEventListener('click', endCall);
-    }
+    document.getElementById('toggle-video').addEventListener('click', async () => {
+      if (meetingSession && deviceController) {
+        if (isVideoOn) {
+          meetingSession.audioVideo.stopLocalVideoTile();
+          document.getElementById('toggle-video').textContent = 'Turn On Video';
+          isVideoOn = false;
+        } else {
+          const videoInputDevices = await deviceController.listVideoInputDevices();
+          if (videoInputDevices.length > 0) {
+            await deviceController.chooseVideoInputDevice(videoInputDevices[0].deviceId);
+            meetingSession.audioVideo.startLocalVideoTile();
+            meetingSession.audioVideo.bindVideoElement(1, document.getElementById('agent-video'));
+            document.getElementById('toggle-video').textContent = 'Turn Off Video';
+            isVideoOn = true;
+          } else {
+            alert('No camera detected');
+          }
+        }
+      }
+    });
   </script>
 </body>
 </html>
-
-
