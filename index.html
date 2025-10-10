@@ -8,6 +8,7 @@
     #controls { margin-top: 10px; }
     button { margin: 5px; padding: 10px; }
     input { padding: 10px; margin: 5px; }
+    #status { color: #666; font-size: 12px; margin-top: 5px; }
   </style>
 </head>
 <body>
@@ -18,10 +19,16 @@
     <button id="end-call">End Call</button>
     <button id="toggle-mute">Mute</button>
     <button id="toggle-video">Turn On Video</button>
+    <div id="status"></div>
   </div>
   <script>
-    const API_BASE_URL = 'https://your-api-id.execute-api.us-west-2.amazonaws.com/dev'; // Replace with API Gateway URL
+    const API_BASE_URL = 'https://2ghpmy1nm0.execute-api.us-west-2.amazonaws.com/dev';
     let meetingSession, deviceController, isMuted = false, isVideoOn = false;
+    let localVideoTileId = null, remoteVideoTileId = null;
+
+    const updateStatus = (message) => {
+      document.getElementById('status').textContent = message;
+    };
 
     document.getElementById('join-call').addEventListener('click', async () => {
       const contactId = document.getElementById('contactId').value;
@@ -31,15 +38,16 @@
       }
 
       try {
+        updateStatus('Joining call...');
         const response = await fetch(`${API_BASE_URL}/agent-webrtc`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contactId }),
         });
-        const { success, connectionData } = await response.json();
-        if (!success) throw new Error(connectionData.error || 'Failed to join call');
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Failed to join call');
 
-        const { Meeting, AgentAttendee } = connectionData;
+        const { Meeting, AgentAttendee } = data.connectionData;
         const configuration = new window.amazonChimeSDK.MeetingSessionConfiguration(Meeting, AgentAttendee);
         const logger = new window.amazonChimeSDK.ConsoleLogger('ChimeMeetingLogs', window.amazonChimeSDK.LogLevel.INFO);
         deviceController = new window.amazonChimeSDK.DefaultDeviceController(logger);
@@ -51,19 +59,34 @@
         await meetingSession.audioVideo.bindAudioElement(audioElement);
 
         const videoElement = document.getElementById('agent-video');
-        const videoInputDevices = await deviceController.listVideoInputDevices();
-        if (videoInputDevices.length > 0) {
-          await deviceController.chooseVideoInputDevice(videoInputDevices[0].deviceId);
-          meetingSession.audioVideo.startLocalVideoTile();
-          meetingSession.audioVideo.bindVideoElement(1, videoElement);
-          isVideoOn = true;
-          document.getElementById('toggle-video').textContent = 'Turn Off Video';
-        }
-
+        const observer = {
+          videoTileDidUpdate: (tileState) => {
+            if (!tileState.active || !tileState.boundAttendeeId) return;
+            if (tileState.localTile) {
+              localVideoTileId = tileState.tileId;
+              meetingSession.audioVideo.bindVideoElement(tileState.tileId, videoElement);
+            } else {
+              remoteVideoTileId = tileState.tileId;
+              meetingSession.audioVideo.bindVideoElement(tileState.tileId, videoElement);
+              updateStatus('Connected - Customer video active');
+            }
+          },
+          videoTileWasRemoved: (tileId) => {
+            if (tileId === localVideoTileId) localVideoTileId = null;
+            if (tileId === remoteVideoTileId) {
+              remoteVideoTileId = null;
+              updateStatus('Connected - Customer video ended');
+            }
+          },
+        };
+        meetingSession.audioVideo.addObserver(observer);
         meetingSession.audioVideo.start();
+
+        updateStatus('Connected - Waiting for customer video');
       } catch (err) {
         console.error('Error joining call:', err);
         alert('Failed to join call: ' + err.message);
+        updateStatus('Error: ' + err.message);
       }
     });
 
@@ -71,10 +94,13 @@
       if (meetingSession) {
         meetingSession.audioVideo.stop();
         document.querySelectorAll('audio, video').forEach(el => el.remove());
+        localVideoTileId = null;
+        remoteVideoTileId = null;
         isMuted = false;
         isVideoOn = false;
         document.getElementById('toggle-mute').textContent = 'Mute';
         document.getElementById('toggle-video').textContent = 'Turn On Video';
+        updateStatus('Call ended');
       }
     });
 
@@ -86,11 +112,13 @@
             await deviceController.startAudioInput(audioInputDevices[0].deviceId);
             document.getElementById('toggle-mute').textContent = 'Mute';
             isMuted = false;
+            updateStatus('Microphone unmuted');
           }
         } else {
           await deviceController.stopAudioInput();
           document.getElementById('toggle-mute').textContent = 'Unmute';
           isMuted = true;
+          updateStatus('Microphone muted');
         }
       }
     });
@@ -101,16 +129,19 @@
           meetingSession.audioVideo.stopLocalVideoTile();
           document.getElementById('toggle-video').textContent = 'Turn On Video';
           isVideoOn = false;
+          updateStatus('Video turned off');
         } else {
           const videoInputDevices = await deviceController.listVideoInputDevices();
           if (videoInputDevices.length > 0) {
             await deviceController.chooseVideoInputDevice(videoInputDevices[0].deviceId);
             meetingSession.audioVideo.startLocalVideoTile();
-            meetingSession.audioVideo.bindVideoElement(1, document.getElementById('agent-video'));
+            meetingSession.audioVideo.bindVideoElement(localVideoTileId || 1, document.getElementById('agent-video'));
             document.getElementById('toggle-video').textContent = 'Turn Off Video';
             isVideoOn = true;
+            updateStatus('Video turned on');
           } else {
             alert('No camera detected');
+            updateStatus('No camera detected');
           }
         }
       }
