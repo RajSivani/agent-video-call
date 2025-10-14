@@ -1,271 +1,273 @@
-<script>
-  let meetingSession, deviceController, isMuted = false, isVideoOn = false;
-  let localVideoTileId = null, remoteVideoTileId = null;
-  let audioElement = null;
-
-  const updateStatus = (message, type = 'info') => {
-    const statusEl = document.getElementById('status');
-    statusEl.textContent = message;
-    statusEl.className = type;
-    console.log(`[${type.toUpperCase()}] ${message}`);
-  };
-
-  const enableControls = (enabled) => {
-    document.getElementById('end-call').disabled = !enabled;
-    document.getElementById('toggle-mute').disabled = !enabled;
-    document.getElementById('toggle-video').disabled = !enabled;
-  };
-
-  // Call Lambda using AWS SDK
-  const callLambdaFunction = async (contactId) => {
-    const region = document.getElementById('awsRegion').value.trim();
-    const accessKeyId = document.getElementById('awsAccessKey').value.trim();
-    const secretAccessKey = document.getElementById('awsSecretKey').value.trim();
-    const functionName = document.getElementById('lambdaName').value.trim();
-
-    if (!region || !accessKeyId || !secretAccessKey || !functionName) {
-      throw new Error('Please fill in all AWS configuration fields');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Agent Video Call</title>
+  <script src="https://unpkg.com/amazon-connect-streams@1.x"></script>
+  <script src="https://unpkg.com/amazon-chime-sdk-js@3.x/dist/amazon-chime-sdk.min.js"></script>
+  <script src="https://unpkg.com/aws4fetch@1.0.17/dist/aws4fetch.js"></script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; connect-src 'self' https://*.amazonaws.com wss://*.amazonaws.com;">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      height: 100vh;
+      background-color: #f4f4f4;
     }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .video-container {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .video-box {
+      flex: 1;
+      margin: 0 10px;
+      background: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .video-box video {
+      width: 100%;
+      height: 300px;
+      background: #000;
+      border-radius: 4px;
+    }
+    #controls {
+      text-align: center;
+    }
+    #controls button {
+      padding: 10px 20px;
+      margin: 0 5px;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: #fff;
+      cursor: pointer;
+    }
+    #controls button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    #status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    #status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    #status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h1>Agent Video Call Interface</h1>
 
-    AWS.config.update({
-      region: region,
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey
-    });
+  <div class="video-container">
+    <div class="video-box">
+      <h3>Customer Video</h3>
+      <video id="remote-video" autoplay playsinline muted></video>
+    </div>
+    <div class="video-box">
+      <h3>Your Video (Agent)</h3>
+      <video id="local-video" autoplay playsinline muted></video>
+    </div>
+  </div>
+  
+  <div id="controls">
+    <button id="end-call" disabled>End Call</button>
+    <button id="toggle-mute" disabled>Mute</button>
+    <button id="toggle-video" disabled>Turn On Video</button>
+    <div id="status">Waiting for contact...</div>
+  </div>
 
-    const lambda = new AWS.Lambda();
-    const params = {
-      FunctionName: functionName,
-      InvocationType: 'RequestResponse',
-      Payload: JSON.stringify({ contactId })
+  <script>
+    let meetingSession, deviceController, isMuted = false, isVideoOn = false;
+    let localVideoTileId = null, remoteVideoTileId = null;
+    let audioElement = null;
+
+    const updateStatus = (message, type = 'info') => {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.className = type;
+      console.log(`[${type.toUpperCase()}] ${message}`);
     };
 
-    console.log('Invoking Lambda with params:', { ...params, Payload: JSON.parse(params.Payload) });
+    const enableControls = (enabled) => {
+      document.getElementById('end-call').disabled = !enabled;
+      document.getElementById('toggle-mute').disabled = !enabled;
+      document.getElementById('toggle-video').disabled = !enabled;
+    };
 
-    return new Promise((resolve, reject) => {
-      lambda.invoke(params, (err, data) => {
-        if (err) {
-          console.error('Lambda invocation error:', err);
-          reject(err);
-        } else {
-          console.log('Lambda response:', data);
-          try {
-            const response = JSON.parse(data.Payload);
-            console.log('Parsed Lambda response:', response);
-            resolve(response);
-          } catch (parseErr) {
-            console.error('Error parsing Lambda response:', parseErr);
-            reject(parseErr);
-          }
-        }
+    const callLambdaFunction = async (contactId) => {
+      // Replace with your secure credential injection method
+      const aws4fetch = new Aws4Fetch({
+        accessKeyId: 'YOUR_ACCESS_KEY_ID', // Replace with secure credentials
+        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY', // Replace with secure credentials
+        sessionToken: 'YOUR_SESSION_TOKEN', // Optional, replace if using temporary credentials
+        region: 'us-west-2'
       });
-    });
-  };
 
-  // Initialize Amazon Connect Streams
-  const initConnectStreams = () => {
-    // Initialize Streams API
-    connect.core.initCCP(document.createElement('div'), {
-      ccpUrl: 'https://<your-connect-instance>.my.connect.aws/amazon-connect/app', // Replace with your Connect CCP URL
-      loginPopup: true,
-      softphone: { allowFramedSoftphone: true }
-    });
+      const response = await aws4fetch.fetch('https://2ghpmy1nm0.execute-api.us-west-2.amazonaws.com/dev/agent-webrtc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactId })
+      });
 
-    // Subscribe to contact events
-    connect.contact((contact) => {
-      console.log('New contact received:', contact.getContactId());
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'API request failed');
+      return data;
+    };
 
-      // Handle contact connection
-      contact.onConnected(async () => {
-        const contactId = contact.getContactId();
-        updateStatus(`Contact received: ${contactId}`, 'info');
+    const initConnectStreams = () => {
+      updateStatus('Initializing Streams API...', 'info');
+      
+      connect.contact((contact) => {
+        console.log('New contact received:', contact.getContactId());
 
-        try {
-          // Automatically join the call
-          updateStatus('Joining call...', 'info');
-          console.log('Requesting to join call with contactId:', contactId);
-          
-          const data = await callLambdaFunction(contactId);
-          console.log('Lambda Response:', data);
-          
-          if (!data.success) {
-            throw new Error(data.error || 'Failed to join call');
-          }
+        contact.onConnected(async () => {
+          const contactId = contact.getContactId();
+          updateStatus(`Contact received: ${contactId}`, 'info');
 
-          const { Meeting, AgentAttendee } = data.connectionData;
-          console.log('Meeting configuration received:', { Meeting, AgentAttendee });
-          
-          // Initialize Chime SDK
-          const configuration = new window.amazonChimeSDK.MeetingSessionConfiguration(Meeting, AgentAttendee);
-          const logger = new window.amazonChimeSDK.ConsoleLogger('AgentChimeLogs', window.amazonChimeSDK.LogLevel.INFO);
-          deviceController = new window.amazonChimeSDK.DefaultDeviceController(logger);
-          meetingSession = new window.amazonChimeSDK.DefaultMeetingSession(configuration, logger, deviceController);
-
-          // Setup audio
-          audioElement = document.createElement('audio');
-          audioElement.autoplay = true;
-          document.body.appendChild(audioElement);
-          await meetingSession.audioVideo.bindAudioElement(audioElement);
-
-          // Start audio input
           try {
+            updateStatus('Joining video call...', 'info');
+            const data = await callLambdaFunction(contactId);
+            
+            if (!data.success) {
+              throw new Error(data.error || 'Failed to join call');
+            }
+
+            const { Meeting, AgentAttendee } = data.connectionData;
+            
+            const configuration = new window.amazonChimeSDK.MeetingSessionConfiguration(Meeting, AgentAttendee);
+            const logger = new window.amazonChimeSDK.ConsoleLogger('AgentChimeLogs', window.amazonChimeSDK.LogLevel.INFO);
+            deviceController = new window.amazonChimeSDK.DefaultDeviceController(logger);
+            meetingSession = new window.amazonChimeSDK.DefaultMeetingSession(configuration, logger, deviceController);
+
+            audioElement = document.createElement('audio');
+            audioElement.autoplay = true;
+            document.body.appendChild(audioElement);
+            await meetingSession.audioVideo.bindAudioElement(audioElement);
+
             const audioInputDevices = await deviceController.listAudioInputDevices();
-            console.log('Audio devices found:', audioInputDevices);
             if (audioInputDevices.length > 0) {
               await deviceController.startAudioInput(audioInputDevices[0].deviceId);
-              updateStatus('Audio connected', 'success');
             }
-          } catch (err) {
-            console.warn('Audio setup error:', err);
-            updateStatus('Audio setup failed, but continuing...', 'error');
-          }
 
-          // Setup video observer
-          const localVideoElement = document.getElementById('local-video');
-          const remoteVideoElement = document.getElementById('remote-video');
-          
-          const observer = {
-            videoTileDidUpdate: (tileState) => {
-              console.log('=== Video tile updated ===');
-              console.log('Tile ID:', tileState.tileId);
-              console.log('Is local:', tileState.localTile);
-              console.log('Is active:', tileState.active);
-              console.log('Attendee ID:', tileState.boundAttendeeId);
-              
-              if (!tileState.active || !tileState.boundAttendeeId) {
-                console.log('Tile not active or no attendee, skipping');
-                return;
-              }
-              
-              if (tileState.localTile) {
-                console.log('✅ Agent local video tile detected');
-                localVideoTileId = tileState.tileId;
-                meetingSession.audioVideo.bindVideoElement(tileState.tileId, localVideoElement);
-                updateStatus('Connected - Your video is on', 'success');
-              } else {
-                console.log('✅ Customer remote video tile detected');
-                remoteVideoTileId = tileState.tileId;
-                meetingSession.audioVideo.bindVideoElement(tileState.tileId, remoteVideoElement);
-                updateStatus('Connected - Customer video visible', 'success');
-              }
-            },
+            const localVideoElement = document.getElementById('local-video');
+            const remoteVideoElement = document.getElementById('remote-video');
             
-            videoTileWasRemoved: (tileId) => {
-              console.log('=== Video tile removed ===');
-              console.log('Removed tile ID:', tileId);
-              
-              if (tileId === localVideoTileId) {
-                console.log('Agent video removed');
-                localVideoTileId = null;
-                updateStatus('Your video turned off', 'info');
-              }
-              if (tileId === remoteVideoTileId) {
-                console.log('Customer video removed');
-                remoteVideoTileId = null;
-                updateStatus('Customer video ended', 'info');
-              }
-            },
-          };
-          
-          meetingSession.audioVideo.addObserver(observer);
-          meetingSession.audioVideo.start();
+            const observer = {
+              videoTileDidUpdate: (tileState) => {
+                if (!tileState.active || !tileState.boundAttendeeId) return;
+                
+                if (tileState.localTile) {
+                  localVideoTileId = tileState.tileId;
+                  meetingSession.audioVideo.bindVideoElement(tileState.tileId, localVideoElement);
+                } else {
+                  remoteVideoTileId = tileState.tileId;
+                  meetingSession.audioVideo.bindVideoElement(tileState.tileId, remoteVideoElement);
+                }
+              },
+              videoTileWasRemoved: (tileId) => {
+                if (tileId === localVideoTileId) localVideoTileId = null;
+                if (tileId === remoteVideoTileId) remoteVideoTileId = null;
+              },
+            };
+            
+            meetingSession.audioVideo.addObserver(observer);
+            meetingSession.audioVideo.start();
 
-          enableControls(true);
-          updateStatus('Connected - Waiting for customer video', 'success');
-          
-        } catch (err) {
-          console.error('Error joining call:', err);
-          alert('Failed to join call: ' + err.message);
-          updateStatus('Error: ' + err.message, 'error');
-        }
+            enableControls(true);
+            updateStatus('✅ Connected - Video call active', 'success');
+            
+          } catch (err) {
+            console.error('Error joining call:', err);
+            alert('Failed to join call: ' + err.message);
+            updateStatus('Error: ' + err.message, 'error');
+          }
+        });
+
+        contact.onEnded(() => {
+          if (meetingSession) {
+            meetingSession.audioVideo.stop();
+            enableControls(false);
+            updateStatus('Call ended', 'info');
+          }
+        });
       });
+    };
+
+    window.addEventListener('load', () => {
+      updateStatus('Loading Video Call Interface...', 'info');
+      setTimeout(initConnectStreams, 1000);
     });
-  };
 
-  // Initialize Streams on page load
-  window.addEventListener('load', () => {
-    updateStatus('Initializing Amazon Connect Streams...', 'info');
-    initConnectStreams();
-  });
-
-  document.getElementById('end-call').addEventListener('click', () => {
-    if (meetingSession) {
-      meetingSession.audioVideo.stop();
-      
-      if (audioElement) {
-        audioElement.remove();
-        audioElement = null;
+    document.getElementById('end-call').addEventListener('click', () => {
+      if (meetingSession) {
+        meetingSession.audioVideo.stop();
+        if (audioElement) audioElement.remove();
+        document.getElementById('local-video').srcObject = null;
+        document.getElementById('remote-video').srcObject = null;
+        localVideoTileId = null;
+        remoteVideoTileId = null;
+        isMuted = false;
+        isVideoOn = false;
+        document.getElementById('toggle-mute').textContent = 'Mute';
+        document.getElementById('toggle-video').textContent = 'Turn On Video';
+        enableControls(false);
+        updateStatus('Call ended', 'info');
       }
-      
-      document.getElementById('local-video').srcObject = null;
-      document.getElementById('remote-video').srcObject = null;
-      
-      localVideoTileId = null;
-      remoteVideoTileId = null;
-      isMuted = false;
-      isVideoOn = false;
-      
-      document.getElementById('toggle-mute').textContent = 'Mute';
-      document.getElementById('toggle-video').textContent = 'Turn On Video';
-      
-      enableControls(false);
-      updateStatus('Call ended', 'info');
-    }
-  });
+    });
 
-  document.getElementById('toggle-mute').addEventListener('click', async () => {
-    if (meetingSession && deviceController) {
-      try {
+    document.getElementById('toggle-mute').addEventListener('click', async () => {
+      if (meetingSession && deviceController) {
         if (isMuted) {
           const audioInputDevices = await deviceController.listAudioInputDevices();
           if (audioInputDevices.length > 0) {
             await deviceController.startAudioInput(audioInputDevices[0].deviceId);
             document.getElementById('toggle-mute').textContent = 'Mute';
             isMuted = false;
-            updateStatus('Microphone unmuted', 'success');
           }
         } else {
           await deviceController.stopAudioInput();
           document.getElementById('toggle-mute').textContent = 'Unmute';
           isMuted = true;
-          updateStatus('Microphone muted', 'info');
         }
-      } catch (err) {
-        console.error('Error toggling mute:', err);
-        updateStatus('Error toggling mute: ' + err.message, 'error');
       }
-    }
-  });
+    });
 
-  document.getElementById('toggle-video').addEventListener('click', async () => {
-    if (meetingSession && deviceController) {
-      try {
+    document.getElementById('toggle-video').addEventListener('click', async () => {
+      if (meetingSession && deviceController) {
         if (isVideoOn) {
-          console.log('Stopping agent video...');
           meetingSession.audioVideo.stopLocalVideoTile();
           document.getElementById('toggle-video').textContent = 'Turn On Video';
           isVideoOn = false;
-          updateStatus('Video turned off', 'info');
         } else {
-          console.log('Starting agent video...');
           const videoInputDevices = await deviceController.listVideoInputDevices();
-          console.log('Video devices found:', videoInputDevices);
-          
           if (videoInputDevices.length > 0) {
             await deviceController.startVideoInput(videoInputDevices[0].deviceId);
             meetingSession.audioVideo.startLocalVideoTile();
             document.getElementById('toggle-video').textContent = 'Turn Off Video';
             isVideoOn = true;
-            updateStatus('Video turned on', 'success');
-          } else {
-            alert('No camera detected');
-            updateStatus('No camera detected', 'error');
           }
         }
-      } catch (err) {
-        console.error('Error toggling video:', err);
-        updateStatus('Error toggling video: ' + err.message, 'error');
       }
-    }
-  });
-</script>
+    });
+  </script>
+</body>
+</html>
