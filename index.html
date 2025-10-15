@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <title>Agent Video Call</title>
@@ -269,6 +269,88 @@
       }
     });
   </script>
+</body>
+</html>
+
+
+ -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebRTC Video Call</title>
+  <style>
+    video { width: 300px; height: 200px; margin: 5px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h2>WebRTC Video Call</h2>
+  <div>
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+<script type="module">
+import { ConnectParticipantClient, CreateParticipantConnectionCommand } from "@aws-sdk/client-connectparticipant";
+
+const REGION = "us-west-2";
+const urlParams = new URLSearchParams(window.location.search);
+const role = urlParams.get("role");           // customer or agent
+const joinToken = urlParams.get("joinToken");
+const meetingId = urlParams.get("meetingId");
+
+if (!joinToken || !meetingId) {
+  alert("Missing join token or meeting ID");
+}
+
+let pc, ws;
+
+async function startWebRTC() {
+  const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+  document.getElementById("localVideo").srcObject = localStream;
+
+  // Create RTCPeerConnection
+  pc = new RTCPeerConnection();
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  pc.ontrack = (event) => {
+    document.getElementById("remoteVideo").srcObject = event.streams[0];
+  };
+
+  // 1️⃣ Use ConnectParticipantClient to get signaling URL & credentials
+  const participantClient = new ConnectParticipantClient({ region: REGION });
+  const connectionCommand = new CreateParticipantConnectionCommand({
+    ParticipantToken: joinToken,
+    Type: ["WEBSOCKET", "CONNECTION_CREDENTIALS"]
+  });
+
+  const connectionInfo = await participantClient.send(connectionCommand);
+
+  // 2️⃣ Open WebSocket to signaling URL
+  const signalUrl = connectionInfo.Websocket.Url;
+  const wsCredentials = connectionInfo.Websocket.ConnectionCredentials;
+
+  ws = new WebSocket(signalUrl);
+  ws.onopen = () => console.log("Connected to signaling server");
+
+  ws.onmessage = async (msg) => {
+    const data = JSON.parse(msg.data);
+    if (data.Type === "SDP_OFFER") {
+      await pc.setRemoteDescription({ type: "offer", sdp: data.Sdp });
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ Type: "SDP_ANSWER", Sdp: answer.sdp }));
+    } else if (data.Type === "ICE_CANDIDATE") {
+      await pc.addIceCandidate(data.IceCandidate);
+    }
+  };
+
+  pc.onicecandidate = (event) => {
+    if (event.candidate) ws.send(JSON.stringify({ Type: "ICE_CANDIDATE", IceCandidate: event.candidate }));
+  };
+}
+
+startWebRTC();
+</script>
 </body>
 </html>
 
